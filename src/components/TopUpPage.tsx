@@ -8,9 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ArrowLeft, Diamond, Upload, Smartphone, CreditCard, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
-import { topUpFormSchema, validateImageFile, sanitizeString } from "@/lib/validations";
-import { generateCSRFToken } from "@/lib/security";
 import diamondIcon from "@/assets/diamond-icon.png";
 
 const diamondPackages = [
@@ -42,7 +39,6 @@ const paymentMethods = [
 ];
 
 const TopUpPage = () => {
-  const { toast } = useToast();
   const [selectedPackage, setSelectedPackage] = useState<typeof diamondPackages[0] | null>(null);
   const [formData, setFormData] = useState({
     uid: "",
@@ -52,95 +48,24 @@ const TopUpPage = () => {
     notes: "",
   });
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [csrfToken] = useState(() => generateCSRFToken());
 
   const handlePackageSelect = (pkg: typeof diamondPackages[0]) => {
     setSelectedPackage(pkg);
   };
 
   const handleSubmitOrder = () => {
-    // Clear previous errors
-    setErrors({});
-
-    // Validate required fields
-    if (!selectedPackage) {
-      toast({
-        title: "Error",
-        description: "Please select a diamond package",
-        variant: "destructive",
-      });
+    if (!selectedPackage || !formData.uid || !formData.ign || !paymentProof) {
+      alert("Please fill all required fields and upload payment proof");
       return;
     }
-
-    if (!paymentProof) {
-      toast({
-        title: "Error", 
-        description: "Please upload payment proof",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate file
-    const fileValidation = validateImageFile(paymentProof);
-    if (!fileValidation.valid) {
-      toast({
-        title: "Invalid File",
-        description: fileValidation.error,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Sanitize and validate form data
-    const sanitizedData = {
-      uid: sanitizeString(formData.uid),
-      ign: sanitizeString(formData.ign),
-      paymentMethod: formData.paymentMethod,
-      transactionId: sanitizeString(formData.transactionId),
-      notes: sanitizeString(formData.notes),
-    };
-
-    // Validate with Zod
-    const validation = topUpFormSchema.safeParse(sanitizedData);
-    if (!validation.success) {
-      const fieldErrors: Record<string, string> = {};
-      validation.error.issues.forEach((error) => {
-        const field = error.path[0] as string;
-        fieldErrors[field] = error.message;
-      });
-      setErrors(fieldErrors);
-      
-      toast({
-        title: "Validation Error",
-        description: "Please fix the errors in the form",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Here you would typically send the order to your backend with CSRF token
-    const orderData = {
-      ...validation.data,
-      package: selectedPackage,
-      paymentProof: paymentProof,
-      csrfToken,
-      timestamp: new Date().toISOString(),
-    };
-
-    console.log("Secure order submission:", orderData);
     
-    toast({
-      title: "Order Submitted",
-      description: "Your order has been submitted successfully! We will process it within 5 minutes.",
-    });
+    // Here you would typically send the order to your backend
+    alert("Order submitted successfully! We will process it within 5 minutes.");
     
     // Reset form
     setSelectedPackage(null);
     setFormData({ uid: "", ign: "", paymentMethod: "", transactionId: "", notes: "" });
     setPaymentProof(null);
-    setErrors({});
   };
 
   return (
@@ -227,11 +152,8 @@ const TopUpPage = () => {
                     placeholder="Enter your Free Fire UID"
                     value={formData.uid}
                     onChange={(e) => setFormData({ ...formData, uid: e.target.value })}
-                    className={`bg-background border-border ${errors.uid ? 'border-destructive' : ''}`}
+                    className="bg-background border-border"
                   />
-                  {errors.uid && (
-                    <p className="text-sm text-destructive mt-1">{errors.uid}</p>
-                  )}
                 </div>
 
                 <div>
@@ -243,11 +165,8 @@ const TopUpPage = () => {
                     placeholder="Enter your in-game name"
                     value={formData.ign}
                     onChange={(e) => setFormData({ ...formData, ign: e.target.value })}
-                    className={`bg-background border-border ${errors.ign ? 'border-destructive' : ''}`}
+                    className="bg-background border-border"
                   />
-                  {errors.ign && (
-                    <p className="text-sm text-destructive mt-1">{errors.ign}</p>
-                  )}
                 </div>
 
                 {/* Payment Methods */}
@@ -299,25 +218,8 @@ const TopUpPage = () => {
                     <input
                       type="file"
                       id="paymentProof"
-                      accept="image/jpeg,image/jpg,image/png,image/webp"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null;
-                        if (file) {
-                          const validation = validateImageFile(file);
-                          if (validation.valid) {
-                            setPaymentProof(file);
-                          } else {
-                            toast({
-                              title: "Invalid File",
-                              description: validation.error,
-                              variant: "destructive",
-                            });
-                            e.target.value = '';
-                          }
-                        } else {
-                          setPaymentProof(null);
-                        }
-                      }}
+                      accept="image/*"
+                      onChange={(e) => setPaymentProof(e.target.files?.[0] || null)}
                       className="hidden"
                     />
                     <Label

@@ -6,10 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
-import { adminLoginSchema, sanitizeString } from "@/lib/validations";
-import { checkRateLimit, recordFailedLogin, clearLoginAttempts, createSecureSession, isSessionValid } from "@/lib/security";
-import { SecurityWarning } from "@/components/SecurityWarning";
 import { 
   Settings, 
   Package, 
@@ -64,90 +60,18 @@ const mockOrders = [
 ];
 
 const AdminDashboard = () => {
-  const { toast } = useToast();
   const [orders, setOrders] = useState(mockOrders);
   const [selectedOrder, setSelectedOrder] = useState<typeof mockOrders[0] | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
-  const [session, setSession] = useState<{ token: string; expiresAt: number } | null>(null);
-  const [loginErrors, setLoginErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async () => {
-    setIsLoading(true);
-    setLoginErrors({});
-
-    // Sanitize inputs
-    const sanitizedData = {
-      username: sanitizeString(loginForm.username),
-      password: loginForm.password, // Don't sanitize password, just validate length
-    };
-
-    // Validate with Zod
-    const validation = adminLoginSchema.safeParse(sanitizedData);
-    if (!validation.success) {
-      const fieldErrors: Record<string, string> = {};
-      validation.error.issues.forEach((error) => {
-        const field = error.path[0] as string;
-        fieldErrors[field] = error.message;
-      });
-      setLoginErrors(fieldErrors);
-      setIsLoading(false);
-      return;
-    }
-
-    // Check rate limiting
-    const clientIP = 'admin-user'; // In real app, get actual IP
-    const rateCheck = checkRateLimit(clientIP);
-    
-    if (!rateCheck.allowed) {
-      const lockoutMinutes = Math.ceil((rateCheck.lockoutUntil! - Date.now()) / 60000);
-      toast({
-        title: "Too Many Attempts",
-        description: `Account locked. Try again in ${lockoutMinutes} minutes.`,
-        variant: "destructive",
-      });
-      setIsLoading(false);
-      return;
-    }
-
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // SECURITY WARNING: Remove hardcoded credentials for production
-    // This should connect to Supabase Auth for proper security
-    if (validation.data.username === "admin" && validation.data.password === "admin123") {
-      clearLoginAttempts(clientIP);
-      const newSession = createSecureSession();
-      setSession(newSession);
+  const handleLogin = () => {
+    // Simple authentication - in real app, this would be proper authentication
+    if (loginForm.username === "admin" && loginForm.password === "admin123") {
       setIsAuthenticated(true);
-      
-      toast({
-        title: "Login Successful",
-        description: "Welcome to the admin dashboard",
-      });
     } else {
-      recordFailedLogin(clientIP);
-      const newRateCheck = checkRateLimit(clientIP);
-      
-      toast({
-        title: "Invalid Credentials",
-        description: `${newRateCheck.remainingAttempts} attempts remaining`,
-        variant: "destructive",
-      });
+      alert("Invalid credentials");
     }
-    
-    setIsLoading(false);
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setSession(null);
-    setLoginForm({ username: "", password: "" });
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out",
-    });
   };
 
   const updateOrderStatus = (orderId: string, newStatus: string) => {
@@ -193,11 +117,7 @@ const AdminDashboard = () => {
                 value={loginForm.username}
                 onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
                 placeholder="Enter username"
-                className={loginErrors.username ? 'border-destructive' : ''}
               />
-              {loginErrors.username && (
-                <p className="text-sm text-destructive mt-1">{loginErrors.username}</p>
-              )}
             </div>
             <div>
               <Label htmlFor="password">Password</Label>
@@ -207,26 +127,15 @@ const AdminDashboard = () => {
                 value={loginForm.password}
                 onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
                 placeholder="Enter password"
-                className={loginErrors.password ? 'border-destructive' : ''}
               />
-              {loginErrors.password && (
-                <p className="text-sm text-destructive mt-1">{loginErrors.password}</p>
-              )}
             </div>
-            <Button 
-              onClick={handleLogin} 
-              variant="gaming" 
-              className="w-full"
-              disabled={isLoading}
-            >
-              {isLoading ? "Logging in..." : "Login"}
+            <Button onClick={handleLogin} variant="gaming" className="w-full">
+              Login
             </Button>
           </div>
           
           <div className="mt-4 text-center text-sm text-muted-foreground">
-            <div className="p-2 bg-destructive/10 border border-destructive/20 rounded">
-              ⚠️ SECURITY WARNING: Using demo credentials. Connect to Supabase for production.
-            </div>
+            Demo: admin / admin123
           </div>
         </Card>
       </div>
@@ -246,7 +155,7 @@ const AdminDashboard = () => {
             </div>
           </div>
           <Button 
-            onClick={handleLogout} 
+            onClick={() => setIsAuthenticated(false)} 
             variant="outline"
           >
             Logout
@@ -255,8 +164,6 @@ const AdminDashboard = () => {
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        <SecurityWarning />
-        
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
           <Card className="p-6 bg-gradient-card border-primary/30">
