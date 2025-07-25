@@ -2,39 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+/* Gaming-themed design system for Free Fire TopUp Nepal 
 All colors MUST be HSL.
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Gaming dark theme background */
+    --background: 220 30% 8%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Gaming cards with subtle transparency */
+    --card: 220 25% 12%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 220 25% 10%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Free Fire orange-red primary */
+    --primary: 15 85% 55%;
+    --primary-foreground: 0 0% 98%;
+    --primary-glow: 15 90% 65%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Gaming blue secondary */
+    --secondary: 225 80% 45%;
+    --secondary-foreground: 0 0% 98%;
+    --secondary-glow: 225 85% 60%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 20% 20%;
+    --muted-foreground: 220 10% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Gaming accent with neon feel */
+    --accent: 280 100% 70%;
+    --accent-foreground: 0 0% 98%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 220 15% 25%;
+    --input: 220 20% 15%;
+    --ring: 15 85% 55%;
+
+    /* Gaming gradients */
+    --gradient-gaming: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+    --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 50%, hsl(var(--accent)) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(220 20% 15%) 100%);
+    
+    /* Gaming shadows with glow effects */
+    --shadow-gaming: 0 8px 32px -8px hsl(var(--primary) / 0.4);
+    --shadow-secondary: 0 8px 32px -8px hsl(var(--secondary) / 0.3);
+    --shadow-neon: 0 0 20px hsl(var(--accent) / 0.5);
+    
+    /* Smooth gaming transitions */
+    --transition-gaming: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     --radius: 0.5rem;
 
