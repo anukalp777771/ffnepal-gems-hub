@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,8 +19,14 @@ import {
   Trash2,
   Plus,
   Download,
-  MessageSquare
+  MessageSquare,
+  LogOut,
+  Home
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Link } from "react-router-dom";
 
 // Mock data - in real app, this would come from your backend
 const mockOrders = [
@@ -60,18 +66,64 @@ const mockOrders = [
 ];
 
 const AdminDashboard = () => {
+  const { user, profile, signOut, isAdmin } = useAuth();
+  const { toast } = useToast();
   const [orders, setOrders] = useState(mockOrders);
   const [selectedOrder, setSelectedOrder] = useState<typeof mockOrders[0] | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+  const [users, setUsers] = useState([]);
 
-  const handleLogin = () => {
-    // Simple authentication - in real app, this would be proper authentication
-    if (loginForm.username === "admin" && loginForm.password === "admin123") {
-      setIsAuthenticated(true);
-    } else {
-      alert("Invalid credentials");
+  useEffect(() => {
+    if (isAdmin) {
+      fetchUsers();
     }
+  }, [isAdmin]);
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch users",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateUserRole = async (userId: string, newRole: 'user' | 'admin') => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: `User role updated to ${newRole}`,
+      });
+      
+      fetchUsers();
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update user role",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
   };
 
   const updateOrderStatus = (orderId: string, newStatus: string) => {
@@ -100,47 +152,6 @@ const AdminDashboard = () => {
       .reduce((total, order) => total + order.amount, 0);
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-full max-w-md p-8 bg-gradient-card">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-foreground">Admin Login</h1>
-            <p className="text-muted-foreground">Access the admin dashboard</p>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                value={loginForm.username}
-                onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                placeholder="Enter username"
-              />
-            </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={loginForm.password}
-                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                placeholder="Enter password"
-              />
-            </div>
-            <Button onClick={handleLogin} variant="gaming" className="w-full">
-              Login
-            </Button>
-          </div>
-          
-          <div className="mt-4 text-center text-sm text-muted-foreground">
-            Demo: admin / admin123
-          </div>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -154,12 +165,30 @@ const AdminDashboard = () => {
               <p className="text-sm text-muted-foreground">FF TopUp Nepal Management</p>
             </div>
           </div>
-          <Button 
-            onClick={() => setIsAuthenticated(false)} 
-            variant="outline"
-          >
-            Logout
-          </Button>
+          <div className="flex items-center gap-4">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/">
+                <Home className="h-4 w-4 mr-2" />
+                Home
+              </Link>
+            </Button>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">
+                {profile?.full_name || user?.email}
+              </span>
+              <Badge variant="default" className="text-xs">
+                Admin
+              </Badge>
+            </div>
+            <Button 
+              onClick={handleSignOut} 
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -346,12 +375,42 @@ const AdminDashboard = () => {
           <TabsContent value="users" className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-foreground">User Management</h2>
+              <Button variant="gaming" onClick={fetchUsers}>
+                Refresh Users
+              </Button>
             </div>
             
             <Card className="p-6 bg-gradient-card">
-              <div className="text-center text-muted-foreground">
-                User management interface would go here.
-                View customer details, order history, and support tickets.
+              <div className="space-y-4">
+                {users.length === 0 ? (
+                  <p className="text-center text-muted-foreground">No users found.</p>
+                ) : (
+                  <div className="grid gap-4">
+                    {users.map((user: any) => (
+                      <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg bg-background/50">
+                        <div className="space-y-1">
+                          <p className="font-medium text-foreground">{user.full_name || 'No name'}</p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Created: {new Date(user.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                            {user.role}
+                          </Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateUserRole(user.user_id, user.role === 'admin' ? 'user' : 'admin')}
+                          >
+                            {user.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </Card>
           </TabsContent>

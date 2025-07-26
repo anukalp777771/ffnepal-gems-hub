@@ -1,12 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Crown, Diamond, Sparkles, Users, Phone, MessageCircle } from "lucide-react";
+import { Crown, Diamond, Sparkles, Users, Phone, MessageCircle, LogOut, User, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import heroBanner from "@/assets/hero-banner.jpg";
 import appLogo from "@/assets/app-logo.png";
+import { useAuth } from "@/hooks/useAuth";
 
 const HomePage = () => {
+  const { user, profile, signOut, isAdmin } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -19,11 +26,39 @@ const HomePage = () => {
               <p className="text-sm text-muted-foreground">Premium Diamond Service</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <Badge variant="secondary" className="animate-pulse">
               <Sparkles className="w-3 h-3 mr-1" />
               Online
             </Badge>
+            <div className="flex items-center gap-2 text-sm">
+              <User className="h-4 w-4" />
+              <span className="text-muted-foreground">
+                {profile?.full_name || user?.email}
+              </span>
+              {profile?.role === 'admin' && (
+                <Badge variant="default" className="text-xs">
+                  Admin
+                </Badge>
+              )}
+            </div>
+            {isAdmin && (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/admin">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Admin Panel
+                </Link>
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSignOut}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </Button>
           </div>
         </div>
       </header>
