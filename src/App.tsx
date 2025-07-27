@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import HomePage from "./components/HomePage";
 import TopUpPage from "./components/TopUpPage";
 import OffersPage from "./components/OffersPage";
+import PurchasePage from "./components/PurchasePage";
 import AdminDashboard from "./components/AdminDashboard";
 import AuthPage from "./components/auth/AuthPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
@@ -37,6 +38,11 @@ const App = () => (
             <Route path="/offers" element={
               <ProtectedRoute>
                 <OffersPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/purchase/:offerId" element={
+              <ProtectedRoute>
+                <PurchasePage />
               </ProtectedRoute>
             } />
             <Route path="/admin" element={

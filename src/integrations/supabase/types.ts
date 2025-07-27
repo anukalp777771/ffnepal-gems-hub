@@ -29,6 +29,146 @@ export type Database = {
         }
         Relationships: []
       }
+      offer_orders: {
+        Row: {
+          created_at: string
+          id: string
+          ign: string
+          notes: string | null
+          offer_id: string
+          payment_method: string
+          payment_proof_url: string | null
+          status: string
+          transaction_id: string | null
+          uid: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ign: string
+          notes?: string | null
+          offer_id: string
+          payment_method: string
+          payment_proof_url?: string | null
+          status?: string
+          transaction_id?: string | null
+          uid: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ign?: string
+          notes?: string | null
+          offer_id?: string
+          payment_method?: string
+          payment_proof_url?: string | null
+          status?: string
+          transaction_id?: string | null
+          uid?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_orders_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offers: {
+        Row: {
+          active: boolean
+          badge: string
+          created_at: string
+          duration: string
+          features: Json
+          id: string
+          name: string
+          original_price: number
+          popular: boolean
+          price: number
+        }
+        Insert: {
+          active?: boolean
+          badge: string
+          created_at?: string
+          duration: string
+          features: Json
+          id: string
+          name: string
+          original_price: number
+          popular?: boolean
+          price: number
+        }
+        Update: {
+          active?: boolean
+          badge?: string
+          created_at?: string
+          duration?: string
+          features?: Json
+          id?: string
+          name?: string
+          original_price?: number
+          popular?: boolean
+          price?: number
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          created_at: string
+          id: string
+          ign: string
+          notes: string | null
+          package_diamonds: number
+          package_price: number
+          payment_method: string
+          payment_proof_url: string | null
+          status: string
+          transaction_id: string | null
+          uid: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ign: string
+          notes?: string | null
+          package_diamonds: number
+          package_price: number
+          payment_method: string
+          payment_proof_url?: string | null
+          status?: string
+          transaction_id?: string | null
+          uid: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ign?: string
+          notes?: string | null
+          package_diamonds?: number
+          package_price?: number
+          payment_method?: string
+          payment_proof_url?: string | null
+          status?: string
+          transaction_id?: string | null
+          uid?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

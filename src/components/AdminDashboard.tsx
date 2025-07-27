@@ -1,102 +1,129 @@
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
-  Settings, 
-  Package, 
-  Users, 
-  DollarSign, 
   Eye, 
-  Check, 
-  X, 
-  Clock,
-  Edit,
-  Trash2,
-  Plus,
-  Download,
-  MessageSquare,
+  CheckCircle, 
+  XCircle, 
+  Clock, 
+  Users, 
+  Package, 
+  Settings as SettingsIcon,
   LogOut,
+  TrendingUp,
+  CreditCard,
+  AlertCircle,
   Home
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
+import appLogo from "@/assets/app-logo.png";
 
-// Mock data - in real app, this would come from your backend
-const mockOrders = [
-  {
-    id: "ORD001",
-    uid: "123456789",
-    ign: "ProGamer",
-    package: "480 Diamonds",
-    amount: 410,
-    paymentMethod: "eSewa",
-    status: "pending",
-    timestamp: "2024-01-15 14:30:00",
-    screenshot: "/payment-proof.jpg"
-  },
-  {
-    id: "ORD002",
-    uid: "987654321",
-    ign: "FireKing",
-    package: "1090 Diamonds",
-    amount: 910,
-    paymentMethod: "Khalti",
-    status: "completed",
-    timestamp: "2024-01-15 13:45:00",
-    screenshot: "/payment-proof2.jpg"
-  },
-  {
-    id: "ORD003",
-    uid: "456789123",
-    ign: "NepalWarrior",
-    package: "Weekly Pass",
-    amount: 220,
-    paymentMethod: "IME Pay",
-    status: "processing",
-    timestamp: "2024-01-15 12:20:00",
-    screenshot: "/payment-proof3.jpg"
-  }
-];
+interface Order {
+  id: string;
+  user_id: string;
+  uid: string;
+  ign: string;
+  package_price: number;
+  package_diamonds: number;
+  payment_method: string;
+  transaction_id?: string;
+  payment_proof_url?: string;
+  notes?: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
 
-const AdminDashboard = () => {
-  const { user, profile, signOut, isAdmin } = useAuth();
+interface OfferOrder {
+  id: string;
+  user_id: string;
+  offer_id: string;
+  uid: string;
+  ign: string;
+  payment_method: string;
+  transaction_id?: string;
+  payment_proof_url?: string;
+  notes?: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  offers?: {
+    name: string;
+    price: number;
+  };
+}
+
+const AdminDashboardUpdated = () => {
+  const { user, profile, signOut } = useAuth();
   const { toast } = useToast();
-  const [orders, setOrders] = useState(mockOrders);
-  const [selectedOrder, setSelectedOrder] = useState<typeof mockOrders[0] | null>(null);
-  const [users, setUsers] = useState([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [offerOrders, setOfferOrders] = useState<OfferOrder[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<Order | OfferOrder | null>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (isAdmin) {
-      fetchUsers();
-    }
-  }, [isAdmin]);
-
-  const fetchUsers = async () => {
+  // Fetch all data
+  const fetchData = async () => {
     try {
-      const { data, error } = await supabase
+      setLoading(true);
+      
+      // Fetch diamond orders
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (ordersError) throw ordersError;
+
+      // Fetch offer orders with offer details
+      const { data: offerOrdersData, error: offerOrdersError } = await supabase
+        .from('offer_orders')
+        .select(`
+          *,
+          offers (name, price)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (offerOrdersError) throw offerOrdersError;
+
+      // Fetch users
+      const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (usersError) throw usersError;
+
+      setOrders(ordersData || []);
+      setOfferOrders(offerOrdersData || []);
+      setUsers(usersData || []);
     } catch (error) {
-      console.error('Error fetching users:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch users",
+        description: "Failed to fetch data",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Update user role
   const updateUserRole = async (userId: string, newRole: 'user' | 'admin') => {
     try {
       const { error } = await supabase
@@ -105,18 +132,53 @@ const AdminDashboard = () => {
         .eq('user_id', userId);
 
       if (error) throw error;
-      
+
+      setUsers(users.map(user => 
+        user.user_id === userId ? { ...user, role: newRole } : user
+      ));
+
       toast({
-        title: "Success",
-        description: `User role updated to ${newRole}`,
+        title: "Role Updated",
+        description: `User role changed to ${newRole}`,
       });
-      
-      fetchUsers();
     } catch (error) {
-      console.error('Error updating user role:', error);
       toast({
         title: "Error",
         description: "Failed to update user role",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Update order status
+  const updateOrderStatus = async (orderId: string, newStatus: string, isOfferOrder = false) => {
+    try {
+      const table = isOfferOrder ? 'offer_orders' : 'orders';
+      const { error } = await supabase
+        .from(table)
+        .update({ status: newStatus })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      if (isOfferOrder) {
+        setOfferOrders(offerOrders.map(order => 
+          order.id === orderId ? { ...order, status: newStatus } : order
+        ));
+      } else {
+        setOrders(orders.map(order => 
+          order.id === orderId ? { ...order, status: newStatus } : order
+        ));
+      }
+
+      toast({
+        title: "Status Updated",
+        description: `Order status changed to ${newStatus}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update order status",
         variant: "destructive",
       });
     }
@@ -126,43 +188,63 @@ const AdminDashboard = () => {
     await signOut();
   };
 
-  const updateOrderStatus = (orderId: string, newStatus: string) => {
-    setOrders(orders.map(order => 
-      order.id === orderId ? { ...order, status: newStatus } : order
-    ));
-  };
-
+  // Helper functions for order statistics
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "pending": return "bg-yellow-500";
-      case "processing": return "bg-blue-500";
-      case "completed": return "bg-green-500";
-      case "rejected": return "bg-red-500";
-      default: return "bg-gray-500";
+      case 'pending': return 'text-amber-500';
+      case 'processing': return 'text-blue-500';
+      case 'completed': return 'text-green-500';
+      case 'rejected': return 'text-red-500';
+      default: return 'text-gray-500';
     }
   };
 
   const getStatusCount = (status: string) => {
-    return orders.filter(order => order.status === status).length;
+    const diamondOrders = orders.filter(order => order.status === status).length;
+    const offerOrdersCount = offerOrders.filter(order => order.status === status).length;
+    return diamondOrders + offerOrdersCount;
   };
 
   const getTotalRevenue = () => {
-    return orders
-      .filter(order => order.status === "completed")
-      .reduce((total, order) => total + order.amount, 0);
+    const diamondRevenue = orders
+      .filter(order => order.status === 'completed')
+      .reduce((total, order) => total + order.package_price, 0);
+    
+    const offerRevenue = offerOrders
+      .filter(order => order.status === 'completed')
+      .reduce((total, order) => total + (order.offers?.price || 0), 0);
+    
+    return diamondRevenue + offerRevenue;
   };
 
+  const allOrders = [
+    ...orders.map(order => ({ ...order, type: 'diamond' as const })),
+    ...offerOrders.map(order => ({ ...order, type: 'offer' as const }))
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading admin dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-gradient-card border-b border-border p-4">
+      <header className="bg-gradient-card border-b border-border p-4 sticky top-0 z-10">
         <div className="container mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Settings className="h-8 w-8 text-primary" />
+          <div className="flex items-center gap-4">
+            <img src={appLogo} alt="FF TopUp Nepal" className="h-10 w-auto" />
             <div>
               <h1 className="text-xl font-bold text-foreground">Admin Dashboard</h1>
-              <p className="text-sm text-muted-foreground">FF TopUp Nepal Management</p>
+              <p className="text-sm text-muted-foreground">
+                Welcome back, {profile?.full_name || user?.email}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -172,21 +254,14 @@ const AdminDashboard = () => {
                 Home
               </Link>
             </Button>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">
-                {profile?.full_name || user?.email}
-              </span>
-              <Badge variant="default" className="text-xs">
-                Admin
-              </Badge>
-            </div>
-            <Button 
-              onClick={handleSignOut} 
+            <Button
               variant="outline"
+              size="sm"
+              onClick={handleSignOut}
               className="flex items-center gap-2"
             >
               <LogOut className="h-4 w-4" />
-              Logout
+              Sign Out
             </Button>
           </div>
         </div>
@@ -194,267 +269,342 @@ const AdminDashboard = () => {
 
       <div className="container mx-auto px-4 py-8">
         {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-          <Card className="p-6 bg-gradient-card border-primary/30">
-            <div className="flex items-center gap-3">
-              <Clock className="w-8 h-8 text-yellow-500" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="p-6 bg-gradient-card border-amber-500/30">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-amber-500/20 rounded-full">
+                <Clock className="h-6 w-6 text-amber-500" />
+              </div>
               <div>
-                <div className="text-2xl font-bold text-foreground">{getStatusCount("pending")}</div>
-                <div className="text-sm text-muted-foreground">Pending Orders</div>
+                <p className="text-sm text-muted-foreground">Pending Orders</p>
+                <p className="text-2xl font-bold text-foreground">{getStatusCount('pending')}</p>
               </div>
             </div>
           </Card>
-          
+
           <Card className="p-6 bg-gradient-card border-blue-500/30">
-            <div className="flex items-center gap-3">
-              <Package className="w-8 h-8 text-blue-500" />
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-500/20 rounded-full">
+                <TrendingUp className="h-6 w-6 text-blue-500" />
+              </div>
               <div>
-                <div className="text-2xl font-bold text-foreground">{getStatusCount("processing")}</div>
-                <div className="text-sm text-muted-foreground">Processing</div>
+                <p className="text-sm text-muted-foreground">Processing</p>
+                <p className="text-2xl font-bold text-foreground">{getStatusCount('processing')}</p>
               </div>
             </div>
           </Card>
-          
+
           <Card className="p-6 bg-gradient-card border-green-500/30">
-            <div className="flex items-center gap-3">
-              <Check className="w-8 h-8 text-green-500" />
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-green-500/20 rounded-full">
+                <CheckCircle className="h-6 w-6 text-green-500" />
+              </div>
               <div>
-                <div className="text-2xl font-bold text-foreground">{getStatusCount("completed")}</div>
-                <div className="text-sm text-muted-foreground">Completed</div>
+                <p className="text-sm text-muted-foreground">Completed</p>
+                <p className="text-2xl font-bold text-foreground">{getStatusCount('completed')}</p>
               </div>
             </div>
           </Card>
-          
-          <Card className="p-6 bg-gradient-card border-accent/30">
-            <div className="flex items-center gap-3">
-              <DollarSign className="w-8 h-8 text-accent" />
+
+          <Card className="p-6 bg-gradient-card border-primary/30">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/20 rounded-full">
+                <CreditCard className="h-6 w-6 text-primary" />
+              </div>
               <div>
-                <div className="text-2xl font-bold text-foreground">Rs {getTotalRevenue()}</div>
-                <div className="text-sm text-muted-foreground">Total Revenue</div>
+                <p className="text-sm text-muted-foreground">Total Revenue</p>
+                <p className="text-2xl font-bold text-foreground">Rs {getTotalRevenue()}</p>
               </div>
             </div>
           </Card>
         </div>
 
         {/* Main Content */}
-        <Tabs defaultValue="orders" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="orders">Orders</TabsTrigger>
-            <TabsTrigger value="packages">Packages</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
+        <Tabs defaultValue="orders" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="orders" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Orders
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Users
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <SettingsIcon className="h-4 w-4" />
+              Settings
+            </TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="orders" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-foreground">Order Management</h2>
-              <Button variant="gaming">
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-            </div>
-            
-            <div className="grid gap-4">
-              {orders.map((order) => (
-                <Card key={order.id} className="p-6 bg-gradient-card border-border">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <div className="font-semibold text-foreground">Order #{order.id}</div>
-                        <div className="text-sm text-muted-foreground">{order.timestamp}</div>
-                      </div>
-                      <Badge className={getStatusColor(order.status)}>
-                        {order.status.toUpperCase()}
-                      </Badge>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-foreground">Rs {order.amount}</div>
-                      <div className="text-sm text-muted-foreground">{order.paymentMethod}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="grid md:grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <div className="text-sm text-muted-foreground">UID</div>
-                      <div className="font-medium text-foreground">{order.uid}</div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground">IGN</div>
-                      <div className="font-medium text-foreground">{order.ign}</div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground">Package</div>
-                      <div className="font-medium text-foreground">{order.package}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2 flex-wrap">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" onClick={() => setSelectedOrder(order)}>
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Screenshot
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Payment Screenshot - {order.id}</DialogTitle>
-                        </DialogHeader>
-                        <div className="p-4">
-                          <img 
-                            src={order.screenshot} 
-                            alt="Payment proof" 
-                            className="w-full rounded-lg"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjY2NjIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
-                            }}
-                          />
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                    
-                    {order.status === "pending" && (
-                      <>
-                        <Button 
-                          variant="default" 
-                          size="sm"
-                          onClick={() => updateOrderStatus(order.id, "processing")}
-                        >
-                          <Check className="w-4 h-4 mr-2" />
-                          Approve
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          onClick={() => updateOrderStatus(order.id, "rejected")}
-                        >
-                          <X className="w-4 h-4 mr-2" />
-                          Reject
-                        </Button>
-                      </>
-                    )}
-                    
-                    {order.status === "processing" && (
-                      <Button 
-                        variant="gaming" 
-                        size="sm"
-                        onClick={() => updateOrderStatus(order.id, "completed")}
-                      >
-                        <Check className="w-4 h-4 mr-2" />
-                        Complete
-                      </Button>
-                    )}
-                    
-                    <Button variant="secondary" size="sm">
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Contact
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="packages" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-foreground">Package Management</h2>
-              <Button variant="gaming">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Package
-              </Button>
-            </div>
-            
+
+          {/* Orders Tab */}
+          <TabsContent value="orders">
             <Card className="p-6 bg-gradient-card">
-              <div className="text-center text-muted-foreground">
-                Package management interface would go here. 
-                You can add/edit/delete diamond packages and special offers.
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-foreground">Recent Orders</h3>
+                <Button onClick={fetchData} variant="outline" size="sm">
+                  Refresh
+                </Button>
+              </div>
+
+              <div className="rounded-md border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order ID</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>IGN</TableHead>
+                      <TableHead>Package</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Payment</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {allOrders.map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell className="font-mono text-sm">{order.id.slice(0, 8)}</TableCell>
+                        <TableCell>
+                          <Badge variant={order.type === 'diamond' ? 'default' : 'secondary'}>
+                            {order.type === 'diamond' ? 'Diamond' : 'Pass'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">{order.ign}</TableCell>
+                        <TableCell>
+                          {order.type === 'diamond' 
+                            ? `${(order as Order).package_diamonds} Diamonds`
+                            : (order as OfferOrder).offers?.name || 'Unknown Pass'
+                          }
+                        </TableCell>
+                        <TableCell className="font-semibold">
+                          Rs {order.type === 'diamond' 
+                            ? (order as Order).package_price 
+                            : (order as OfferOrder).offers?.price || 0
+                          }
+                        </TableCell>
+                        <TableCell>{order.payment_method}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={order.status === 'completed' ? 'default' : 'secondary'}
+                            className={getStatusColor(order.status)}
+                          >
+                            {order.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(order.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => setSelectedOrder(order)}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-2xl">
+                                <DialogHeader>
+                                  <DialogTitle>Order Details</DialogTitle>
+                                </DialogHeader>
+                                {selectedOrder && (
+                                  <div className="grid gap-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <div>
+                                        <Label>Order ID</Label>
+                                        <p className="font-mono text-sm">{selectedOrder.id}</p>
+                                      </div>
+                                      <div>
+                                        <Label>IGN</Label>
+                                        <p>{selectedOrder.ign}</p>
+                                      </div>
+                                      <div>
+                                        <Label>UID</Label>
+                                        <p>{selectedOrder.uid}</p>
+                                      </div>
+                                      <div>
+                                        <Label>Payment Method</Label>
+                                        <p>{selectedOrder.payment_method}</p>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                      <Label>Status</Label>
+                                      <Select
+                                        value={selectedOrder.status}
+                                        onValueChange={(value) => {
+                                          updateOrderStatus(
+                                            selectedOrder.id, 
+                                            value, 
+                                            'offer_id' in selectedOrder
+                                          );
+                                          setSelectedOrder({ ...selectedOrder, status: value });
+                                        }}
+                                      >
+                                        <SelectTrigger>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="pending">Pending</SelectItem>
+                                          <SelectItem value="processing">Processing</SelectItem>
+                                          <SelectItem value="completed">Completed</SelectItem>
+                                          <SelectItem value="rejected">Rejected</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+
+                                    {selectedOrder.notes && (
+                                      <div>
+                                        <Label>Notes</Label>
+                                        <p className="text-sm text-muted-foreground">{selectedOrder.notes}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </DialogContent>
+                            </Dialog>
+
+                            {order.status === 'pending' && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => updateOrderStatus(order.id, 'completed', order.type === 'offer')}
+                                >
+                                  <CheckCircle className="h-4 w-4 text-green-500" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => updateOrderStatus(order.id, 'rejected', order.type === 'offer')}
+                                >
+                                  <XCircle className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             </Card>
           </TabsContent>
-          
-          <TabsContent value="users" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-foreground">User Management</h2>
-              <Button variant="gaming" onClick={fetchUsers}>
-                Refresh Users
-              </Button>
-            </div>
-            
+
+          {/* Users Tab */}
+          <TabsContent value="users">
             <Card className="p-6 bg-gradient-card">
-              <div className="space-y-4">
-                {users.length === 0 ? (
-                  <p className="text-center text-muted-foreground">No users found.</p>
-                ) : (
-                  <div className="grid gap-4">
-                    {users.map((user: any) => (
-                      <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg bg-background/50">
-                        <div className="space-y-1">
-                          <p className="font-medium text-foreground">{user.full_name || 'No name'}</p>
-                          <p className="text-sm text-muted-foreground">{user.email}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Created: {new Date(user.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-foreground mb-6">User Management</h3>
+              
+              <div className="rounded-md border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Joined</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">
+                          {user.full_name || 'No name'}
+                        </TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
                           <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
                             {user.role}
                           </Badge>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateUserRole(user.user_id, user.role === 'admin' ? 'user' : 'admin')}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={user.role}
+                            onValueChange={(value: 'user' | 'admin') => updateUserRole(user.user_id, value)}
                           >
-                            {user.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
-                          </Button>
-                        </div>
-                      </div>
+                            <SelectTrigger className="w-24">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="user">User</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </div>
-                )}
+                  </TableBody>
+                </Table>
               </div>
             </Card>
           </TabsContent>
-          
-          <TabsContent value="settings" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-foreground">App Settings</h2>
-            </div>
-            
-            <div className="grid gap-6">
-              <Card className="p-6 bg-gradient-card">
-                <h3 className="text-lg font-bold text-foreground mb-4">App Configuration</h3>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="appName">App Name</Label>
-                    <Input id="appName" defaultValue="FF TopUp Nepal" />
-                  </div>
-                  <div>
-                    <Label htmlFor="supportWhatsApp">Support WhatsApp</Label>
-                    <Input id="supportWhatsApp" defaultValue="9827868024" />
-                  </div>
-                  <Button variant="gaming">Save Changes</Button>
-                </div>
-              </Card>
+
+          {/* Settings Tab */}
+          <TabsContent value="settings">
+            <Card className="p-6 bg-gradient-card">
+              <h3 className="text-lg font-semibold text-foreground mb-6">App Settings</h3>
               
-              <Card className="p-6 bg-gradient-card">
-                <h3 className="text-lg font-bold text-foreground mb-4">Payment Methods</h3>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="esewa">eSewa Number</Label>
-                    <Input id="esewa" defaultValue="982-7868024" />
-                  </div>
-                  <div>
-                    <Label htmlFor="khalti">Khalti Number</Label>
-                    <Input id="khalti" defaultValue="982-7633530" />
-                  </div>
-                  <div>
-                    <Label htmlFor="imepay">IME Pay Number</Label>
-                    <Input id="imepay" defaultValue="9817615513" />
-                  </div>
-                  <Button variant="gaming">Update Payment Info</Button>
+              <div className="space-y-6">
+                <div>
+                  <Label htmlFor="appName">App Name</Label>
+                  <Input
+                    id="appName"
+                    defaultValue="FF TopUp Nepal"
+                    className="bg-background border-border"
+                  />
                 </div>
-              </Card>
-            </div>
+
+                <div>
+                  <Label htmlFor="supportContact">Support Contact</Label>
+                  <Input
+                    id="supportContact"
+                    defaultValue="9827868024"
+                    className="bg-background border-border"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="esewaNumber">eSewa Number</Label>
+                  <Input
+                    id="esewaNumber"
+                    defaultValue="982-7868024"
+                    className="bg-background border-border"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="khaltiNumber">Khalti Number</Label>
+                  <Input
+                    id="khaltiNumber"
+                    defaultValue="982-7633530"
+                    className="bg-background border-border"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="imePayNumber">IME Pay Number</Label>
+                  <Input
+                    id="imePayNumber"
+                    defaultValue="9817615513"
+                    className="bg-background border-border"
+                  />
+                </div>
+
+                <Button variant="gaming" className="w-full">
+                  Save Settings
+                </Button>
+              </div>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
@@ -462,4 +612,4 @@ const AdminDashboard = () => {
   );
 };
 
-export default AdminDashboard;
+export default AdminDashboardUpdated;
